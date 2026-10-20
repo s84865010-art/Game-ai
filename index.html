@@ -1,0 +1,775 @@
+```html
+<!DOCTYPE html>
+<html lang="bn" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>অফলাইন বাংলা ভয়েস এআই (Offline Bengali Voice AI)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        bengal: {
+                            bg: '#0f172a',
+                            card: '#1e293b',
+                            accent: '#10b981',
+                            hover: '#334155',
+                            text: '#f8fafc',
+                            muted: '#94a3b8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts for Bengali -->
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        /* Glassmorphism Effect */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 4px;
+        }
+
+        /* Animated Sound Waves when AI speaks */
+        .wave-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            height: 20px;
+        }
+        .wave-bar {
+            width: 3px;
+            height: 100%;
+            background-color: #10b981;
+            border-radius: 3px;
+            animation: waveBounce 1.2s ease-in-out infinite;
+        }
+        .wave-bar:nth-child(1) { animation-delay: 0.1s; }
+        .wave-bar:nth-child(2) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.4s; }
+
+        @keyframes waveBounce {
+            0%, 100% { height: 4px; }
+            50% { height: 20px; }
+        }
+
+        /* Pulse Animation for Mic Listening */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.15); opacity: 0.4; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .mic-listening {
+            animation: pulse-ring 1.5s infinite ease-in-out;
+            background-color: #ef4444 !important;
+            color: white !important;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col justify-between overflow-hidden">
+
+    <!-- Header / Top Bar -->
+    <header class="glass-panel px-4 py-3 flex items-center justify-between z-10 shadow-md">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-900 shadow-lg shadow-emerald-500/20">
+                <i class="fa-solid fa-robot text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight flex items-center gap-2">
+                    বাংলা অফলাইন এআই 
+                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Offline 100%</span>
+                </h1>
+                <p class="text-xs text-slate-400">ইন্টারনেট ছাড়াই কথা বলুন ও উত্তর নিন</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Offline Status Badge -->
+            <div id="connection-status" class="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs bg-slate-800 text-slate-300 border border-slate-700">
+                <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span id="status-text">রেডি (অফলাইন)</span>
+            </div>
+
+            <!-- Settings Modal Trigger -->
+            <button onclick="openSettingsModal()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">
+                <i class="fa-solid fa-sliders text-sm"></i>
+            </button>
+            
+            <!-- Custom Brain / Teach Modal Trigger -->
+            <button onclick="openTeachModal()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition" title="এআই-কে নতুন কিছু শেখান">
+                <i class="fa-solid fa-graduation-cap text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Chat Workspace -->
+    <main id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-4 max-w-3xl mx-auto w-full">
+        
+        <!-- Welcome Banner -->
+        <div id="welcome-card" class="glass-panel p-5 rounded-2xl text-center space-y-3 my-4">
+            <div class="inline-flex p-3 rounded-full bg-emerald-500/10 text-emerald-400 mb-1">
+                <i class="fa-solid fa-volume-high text-2xl"></i>
+            </div>
+            <h2 class="text-xl font-bold text-slate-100">স্বাগতম! আমি আপনার অফলাইন বাংলা ভয়েস অ্যাসিস্ট্যান্ট</h2>
+            <p class="text-xs sm:text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
+                কোনো ইন্টারনেট ব্যাকএন্ড ছাড়াই ব্রাউজারের নিজস্ব টেকনোলজি ব্যবহার করে আমি বাংলায় কথা বলতে ও উত্তর দিতে পারি।
+            </p>
+
+            <!-- Quick Action Chips -->
+            <div class="flex flex-wrap gap-2 justify-center pt-2">
+                <button onclick="sendQuickPrompt('তোমার নাম কি?')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 transition">
+                    🗣️ তোমার নাম কি?
+                </button>
+                <button onclick="sendQuickPrompt('এখন সময় কত?')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 transition">
+                    ⏰ এখন সময় কত?
+                </button>
+                <button onclick="sendQuickPrompt('একটি কৌতুক বলো')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 transition">
+                    😂 কৌতুক বলো
+                </button>
+                <button onclick="sendQuickPrompt('আজকের তারিখ কত?')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 transition">
+                    📅 আজকের তারিখ
+                </button>
+                <button onclick="sendQuickPrompt('ইসলামের স্তম্ভ কয়টি?')" class="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-300 transition">
+                    🕌 ইসলামের স্তম্ভ
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Log List -->
+        <div id="chat-log" class="space-y-4"></div>
+    </main>
+
+    <!-- Speaking/Listening Indicator Bar -->
+    <div id="ai-status-bar" class="hidden glass-panel py-2 px-4 mx-auto max-w-3xl w-[90%] rounded-xl mb-2 flex items-center justify-between text-xs text-slate-300">
+        <div class="flex items-center gap-2">
+            <div id="ai-wave-anim" class="wave-container hidden">
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+                <div class="wave-bar"></div>
+            </div>
+            <span id="ai-status-text">এআই কথা বলছে...</span>
+        </div>
+        <button onclick="stopSpeech()" class="px-2 py-1 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded text-[11px]">
+            <i class="fa-solid fa-stop"></i> থামান
+        </button>
+    </div>
+
+    <!-- Bottom Control Dock -->
+    <footer class="p-3 glass-panel border-t border-slate-800">
+        <div class="max-w-3xl mx-auto flex items-center gap-2">
+            
+            <!-- Voice Input Mic Button -->
+            <button 
+                id="mic-btn" 
+                onclick="toggleSpeechRecognition()" 
+                class="w-12 h-12 rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 flex items-center justify-center transition shadow-lg shadow-emerald-500/20 flex-shrink-0"
+                title="মাইকে কথা বলুন (বাংলা)">
+                <i class="fa-solid fa-microphone text-lg"></i>
+            </button>
+
+            <!-- Text Input Form -->
+            <form onsubmit="handleTextSubmit(event)" class="flex-1 flex items-center gap-2">
+                <input 
+                    type="text" 
+                    id="user-input" 
+                    placeholder="এখানে বাংলা মেসেজ লিখুন বা মাইক চাপুন..." 
+                    class="w-full bg-slate-900 border border-slate-700 focus:border-emerald-500 rounded-2xl px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:outline-none transition">
+                
+                <button 
+                    type="submit" 
+                    class="w-11 h-11 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 flex items-center justify-center transition flex-shrink-0">
+                    <i class="fa-solid fa-paper-plane text-sm"></i>
+                </button>
+            </form>
+
+            <!-- Speech Audio Auto-play Toggle -->
+            <button 
+                id="auto-speak-btn" 
+                onclick="toggleAutoSpeak()" 
+                class="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition"
+                title="ভয়েস অটো-পড়া চালু/বন্ধ">
+                <i class="fa-solid fa-volume-high text-sm"></i>
+            </button>
+        </div>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-emerald-400"></i> ভয়েস ও অ্যাপ সেটিং
+                </h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-100">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Speech Rate Slider -->
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs text-slate-300">
+                    <span>ভয়েসের গতি (Speed Rate):</span>
+                    <span id="rate-val" class="font-mono text-emerald-400">1.0</span>
+                </div>
+                <input type="range" id="speech-rate" min="0.5" max="1.5" step="0.1" value="1" oninput="updateSpeechConfig()" class="w-full accent-emerald-500">
+            </div>
+
+            <!-- Pitch Slider -->
+            <div class="space-y-1">
+                <div class="flex justify-between text-xs text-slate-300">
+                    <span>ভয়েসের সুর (Pitch):</span>
+                    <span id="pitch-val" class="font-mono text-emerald-400">1.0</span>
+                </div>
+                <input type="range" id="speech-pitch" min="0.5" max="1.5" step="0.1" value="1" oninput="updateSpeechConfig()" class="w-full accent-emerald-500">
+            </div>
+
+            <!-- Voice Selection -->
+            <div class="space-y-1">
+                <label class="text-xs text-slate-300 block">ডিভাইসের বাংলা ভয়েস বেছে নিন:</label>
+                <select id="voice-select" onchange="updateSelectedVoice()" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none">
+                    <option value="">ডিফল্ট বাংলা ভয়েস (Auto)</option>
+                </select>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="pt-2 flex gap-2">
+                <button onclick="clearChatLog()" class="flex-1 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-xl text-xs font-semibold transition">
+                    <i class="fa-solid fa-trash"></i> চ্যাট ক্লিয়ার করুন
+                </button>
+                <button onclick="testBengaliSpeech()" class="flex-1 py-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold transition">
+                    <i class="fa-solid fa-volume-low"></i> টেস্ট ভয়েস
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teach AI Modal -->
+    <div id="teach-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl relative">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-brain text-amber-400"></i> এআই-কে নতুন প্রশ্ন শেখান
+                </h3>
+                <button onclick="closeTeachModal()" class="text-slate-400 hover:text-slate-100">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-400 leading-relaxed">
+                আপনার নিজের কোনো প্রশ্ন এবং তার উত্তর অফলাইনে যুক্ত করুন। পরবর্তীতে এই প্রশ্নটি করলে এআই আপনার শেখানো উত্তরটি দেবে!
+            </p>
+
+            <form onsubmit="handleTeachSubmit(event)" class="space-y-3">
+                <div>
+                    <label class="text-xs text-slate-300 block mb-1">প্রশ্ন/কীওয়ার্ড (বাংলায়):</label>
+                    <input type="text" id="custom-q" placeholder="যেমন: তোমার প্রিয় খাবার কি?" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-400">
+                </div>
+
+                <div>
+                    <label class="text-xs text-slate-300 block mb-1">এআই এর উত্তর:</label>
+                    <textarea id="custom-a" rows="3" placeholder="যেমন: আমি তো ডিজিটাল এআই, আমার প্রিয় খাবার বিদ্যুৎ!" required class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 focus:outline-none focus:border-amber-400"></textarea>
+                </div>
+
+                <button type="submit" class="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-xs transition shadow-lg shadow-amber-500/20">
+                    মেমোরিতে সেভ করুন
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JavaScript Offline Logic Engine -->
+    <script>
+        // --- System State Variables ---
+        let autoSpeak = true;
+        let isSpeaking = false;
+        let isListening = false;
+        let speechRate = 1.0;
+        let speechPitch = 1.0;
+        let selectedVoice = null;
+
+        // Web Speech API Objects
+        const synth = window.speechSynthesis;
+        let recognition = null;
+
+        // Custom Learned Knowledge Database from LocalStorage
+        let customKnowledge = JSON.parse(localStorage.getItem('bengali_ai_custom_knowledge') || '[]');
+
+        // --- Extensive Offline Rule-based Knowledge Base ---
+        const builtInKnowledge = [
+            {
+                keywords: ['নাম', 'কে তুমি', 'পরিচয়', 'তুমার নাম'],
+                response: 'আমি আপনার সম্পূর্ণ অফলাইন বাংলা ভয়েস অ্যাসিস্ট্যান্ট। আমাকে কোনো ইন্টারনেট ছাড়াই ব্রাউজারের ভেতর চালানো সম্ভব!'
+            },
+            {
+                keywords: ['কেমন আছো', 'কেমন আছেন', 'খবর কি', 'কেমন চলছে'],
+                response: 'আমি ভালো আছি! আশা করি আপনিও দারুণ আছেন। আপনাকে কীভাবে সাহায্য করতে পারি?'
+            },
+            {
+                keywords: ['সময়', 'কয়টা বাজে', 'টাইম'],
+                dynamic: () => {
+                    const now = new Date();
+                    return `এখন সময় ${now.toLocaleTimeString('bn-BD')}`;
+                }
+            },
+            {
+                keywords: ['তারিখ', 'আজকে কি বার', 'কয় তারিখ', 'দিন'],
+                dynamic: () => {
+                    const now = new Date();
+                    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                    return `আজকে ${now.toLocaleDateString('bn-BD', options)}`;
+                }
+            },
+            {
+                keywords: ['কৌতুক', 'হাসাও', 'জোকস', 'ফানি'],
+                responses: [
+                    'শিক্ষক: বলতো পল্টু, পৃথিবীর সবচেয়ে কঠিন কাজ কোনটা? পল্টু: স্যার, ঘুমানোর সময় চোখ বন্ধ রাখা!',
+                    'মন্টু দোকানদারকে গিয়ে বলল: ভাই, ১০ টাকার একটি ১০০ টাকার নোট দিন তো!',
+                    'প্রশ্ন: কোন ফল কখনোই পাকানো যায় না? উত্তর: কানের ফল!'
+                ]
+            },
+            {
+                keywords: ['ধন্যবাদ', 'থ্যাংক ইউ', 'ওয়েলকাম'],
+                response: 'আপনাকে অনেক ধন্যবাদ! সবসময় আপনার সেবায় প্রস্তুত।'
+            },
+            {
+                keywords: ['কে বানিয়েছে', 'স্রষ্টা কে', 'তৈরি করেছে কে'],
+                response: 'আমাকে ওয়েব পিরিয়ডের ওপেনসোর্স জাভাস্ক্রিপ্ট এবং ব্রাউজার স্পিচ ইঞ্জিন ব্যবহার করে তৈরি করা হয়েছে।'
+            },
+            {
+                keywords: ['ইসলাম', 'স্তম্ভ', 'রুকন'],
+                response: 'ইসলামের মূল স্তম্ভ ৫টি: ঈমান, সালাত (নামাজ), যাকাত, সিয়াম (রোজা) এবং হজ।'
+            },
+            {
+                keywords: ['সালাম', 'আসসালামু আলাইকুম'],
+                response: 'ওয়ালাইকুম আসসালাম ওয়া রাহমাতুল্লাহ! কেমন আছেন?'
+            },
+            {
+                keywords: ['হাই', 'হ্যালো', 'হে'],
+                response: 'হ্যালো! বলুন, আপনাকে কীভাবে সাহায্য করতে পারি?'
+            },
+            {
+                keywords: ['বাংলাদেশ', 'রাজধানী'],
+                response: 'বাংলাদেশের রাজধানী ঢাকা। এটি একটি সুন্দর নদীমাতৃক দেশ।'
+            }
+        ];
+
+        // --- Core Init ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initSpeechSynthesis();
+            initSpeechRecognition();
+            checkOnlineStatus();
+
+            window.addEventListener('online', checkOnlineStatus);
+            window.addEventListener('offline', checkOnlineStatus);
+        });
+
+        function checkOnlineStatus() {
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+
+            if (navigator.onLine) {
+                statusDot.className = "w-2 h-2 rounded-full bg-emerald-400";
+                statusText.innerText = "অনলাইন (অফলাইন প্রস্তুত)";
+            } else {
+                statusDot.className = "w-2 h-2 rounded-full bg-amber-400";
+                statusText.innerText = "সম্পূর্ণ অফলাইন মোড";
+            }
+        }
+
+        // --- Web Speech Synthesis (Text to Speech - TTS) ---
+        function initSpeechSynthesis() {
+            if (!('speechSynthesis' in window)) {
+                console.warn("এই ব্রাউজারে Speech Synthesis সাপোর্টেড নয়।");
+                return;
+            }
+
+            // Populate voice dropdown
+            populateVoiceList();
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = populateVoiceList;
+            }
+        }
+
+        function populateVoiceList() {
+            const voices = synth.getVoices();
+            const voiceSelect = document.getElementById('voice-select');
+            voiceSelect.innerHTML = '<option value="">ডিফল্ট বাংলা ভয়েস (Auto)</option>';
+
+            voices.forEach((voice, i) => {
+                if (voice.lang.includes('bn') || voice.lang.includes('BD') || voice.lang.includes('IN')) {
+                    const option = document.createElement('option');
+                    option.value = i;
+                    option.textContent = `${voice.name} (${voice.lang})`;
+                    voiceSelect.appendChild(option);
+                }
+            });
+        }
+
+        function speakBengaliText(text) {
+            if (!synth || !autoSpeak) return;
+
+            // Stop any ongoing speech
+            synth.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'bn-BD'; // Standard Bengali locale
+            utterance.rate = speechRate;
+            utterance.pitch = speechPitch;
+
+            const voices = synth.getVoices();
+            const voiceSelectVal = document.getElementById('voice-select').value;
+            
+            if (voiceSelectVal !== "") {
+                utterance.voice = voices[parseInt(voiceSelectVal)];
+            } else {
+                // Auto-pick Bengali voice if available
+                const bnVoice = voices.find(v => v.lang.includes('bn') || v.lang.includes('BD'));
+                if (bnVoice) utterance.voice = bnVoice;
+            }
+
+            utterance.onstart = () => {
+                isSpeaking = true;
+                showAIStatusBar("এআই উত্তর পড়ছে...", true);
+            };
+
+            utterance.onend = () => {
+                isSpeaking = false;
+                hideAIStatusBar();
+            };
+
+            utterance.onerror = () => {
+                isSpeaking = false;
+                hideAIStatusBar();
+            };
+
+            synth.speak(utterance);
+        }
+
+        function stopSpeech() {
+            if (synth) synth.cancel();
+            isSpeaking = false;
+            hideAIStatusBar();
+        }
+
+        // --- Web Speech Recognition (Speech to Text - STT) ---
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            if (!SpeechRecognition) {
+                console.warn("এই ব্রাউজারে স্পিচ রিকগনিশন সাপোর্টেড নয়।");
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'bn-BD'; // Set Bengali language
+
+            recognition.onstart = () => {
+                isListening = true;
+                const micBtn = document.getElementById('mic-btn');
+                micBtn.classList.add('mic-listening');
+                showAIStatusBar("আপনার কথা শুনছি...", false);
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('user-input').value = transcript;
+                processUserInput(transcript);
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech Recog Error:", event.error);
+                stopListeningUI();
+            };
+
+            recognition.onend = () => {
+                stopListeningUI();
+            };
+        }
+
+        function toggleSpeechRecognition() {
+            if (!recognition) {
+                alert("আপনার ব্রাউজার বা ডিভাইসে বাংলা ভয়েস রিকগনিশন সাপোর্ট করছে না। কীবোর্ড দিয়ে টাইপ করুন।");
+                return;
+            }
+
+            if (isListening) {
+                recognition.stop();
+                stopListeningUI();
+            } else {
+                stopSpeech(); // Stop AI speaking if user wants to speak
+                try {
+                    recognition.start();
+                } catch(e) {
+                    recognition.stop();
+                }
+            }
+        }
+
+        function stopListeningUI() {
+            isListening = false;
+            const micBtn = document.getElementById('mic-btn');
+            micBtn.classList.remove('mic-listening');
+            hideAIStatusBar();
+        }
+
+        // --- Offline Natural Language Processing Engine ---
+        function processUserInput(rawInput) {
+            const query = rawInput.trim();
+            if (!query) return;
+
+            // Hide Welcome Card on first query
+            document.getElementById('welcome-card').classList.add('hidden');
+
+            // Render User Bubble
+            renderChatMessage('user', query);
+
+            // Generate Offline Response
+            const aiResponse = generateOfflineResponse(query);
+
+            // Render AI Bubble with slight delay for natural feeling
+            setTimeout(() => {
+                renderChatMessage('ai', aiResponse);
+                speakBengaliText(aiResponse);
+            }, 300);
+
+            // Clear Input field
+            document.getElementById('user-input').value = '';
+        }
+
+        function generateOfflineResponse(input) {
+            const cleanInput = input.toLowerCase();
+
+            // 1. Check Custom Knowledge (Learned responses)
+            for (let item of customKnowledge) {
+                if (cleanInput.includes(item.q.toLowerCase())) {
+                    return item.a;
+                }
+            }
+
+            // 2. Mathematical Calculation Solver (Basic math)
+            if (/[\d\+\-\*\/]/.test(cleanInput) && (cleanInput.includes('কত') || cleanInput.includes('যোগ') || cleanInput.includes('গুণ') || cleanInput.includes('ভাগ'))) {
+                try {
+                    // Extract arithmetic pattern
+                    let expr = cleanInput.replace(/নয়/g, '9').replace(/আট/g, '8').replace(/সাত/g, '7')
+                        .replace(/ছয়/g, '6').replace(/পাঁচ/g, '5').replace(/চার/g, '4')
+                        .replace(/তিন/g, '3').replace(/দুই/g, '2').replace(/এক/g, '1').replace(/শূন্য/g, '0');
+                    
+                    let mathMatch = expr.match(/(\d+\s*[\+\-\*\/]\s*\d+)/);
+                    if (mathMatch) {
+                        let result = eval(mathMatch[0]);
+                        return `হিসাব অনুযায়ী উত্তর হলো: ${result.toLocaleString('bn-BD')}`;
+                    }
+                } catch(e){}
+            }
+
+            // 3. Match Built-in Rule Knowledge
+            for (let item of builtInKnowledge) {
+                for (let kw of item.keywords) {
+                    if (cleanInput.includes(kw)) {
+                        if (item.dynamic) return item.dynamic();
+                        if (item.responses) return item.responses[Math.floor(Math.random() * item.responses.length)];
+                        return item.response;
+                    }
+                }
+            }
+
+            // 4. Default Intelligent Fallbacks
+            const fallbacks = [
+                `আমি একটি অফলাইন এআই। "${input}" বিষয়টি সম্পর্কে আমার লোকাল ডাটাবেজে পর্যাপ্ত তথ্য নেই। আপনি চাইলে সেটিংসে গিয়ে আমাকে এই প্রশ্নের উত্তর শেখাতে পারেন!`,
+                `দুঃখিত, অফলাইন মোডে আমি আপনার প্রশ্নটি ঠিক বুঝতে পারিনি। অন্য কোনো প্রশ্ন করে দেখুন।`,
+                `হুম, বিষয়টি বেশ আকর্ষণীয়! তবে আমার অফলাইন ব্রাউজার মেমোরিতে এটির উত্তর সেভ করা নেই।`
+            ];
+
+            return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+        }
+
+        // --- Render UI Message Bubbles ---
+        function renderChatMessage(sender, text) {
+            const chatLog = document.getElementById('chat-log');
+            const messageDiv = document.createElement('div');
+            
+            if (sender === 'user') {
+                messageDiv.className = 'flex justify-end';
+                messageDiv.innerHTML = `
+                    <div class="max-w-[85%] bg-emerald-500/20 border border-emerald-500/30 text-emerald-100 px-4 py-2.5 rounded-2xl rounded-tr-none text-sm">
+                        <p class="leading-relaxed">${escapeHtml(text)}</p>
+                    </div>
+                `;
+            } else {
+                messageDiv.className = 'flex items-start gap-2.5';
+                messageDiv.innerHTML = `
+                    <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-900 font-bold text-xs flex-shrink-0 mt-1">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div class="max-w-[85%] bg-slate-800 border border-slate-700 text-slate-100 px-4 py-3 rounded-2xl rounded-tl-none text-sm space-y-2">
+                        <p class="leading-relaxed">${escapeHtml(text)}</p>
+                        <div class="flex items-center gap-3 pt-1 text-[11px] text-slate-400 border-t border-slate-700/50">
+                            <button onclick="speakBengaliText('${escapeForJs(text)}')" class="hover:text-emerald-400 transition flex items-center gap-1">
+                                <i class="fa-solid fa-volume-high"></i> শুনুন
+                            </button>
+                            <button onclick="copyText('${escapeForJs(text)}')" class="hover:text-emerald-400 transition flex items-center gap-1">
+                                <i class="fa-regular fa-copy"></i> কপি
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            chatLog.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        // --- UI Handlers ---
+        function handleTextSubmit(e) {
+            e.preventDefault();
+            const inputEl = document.getElementById('user-input');
+            processUserInput(inputEl.value);
+        }
+
+        function sendQuickPrompt(text) {
+            processUserInput(text);
+        }
+
+        function toggleAutoSpeak() {
+            autoSpeak = !autoSpeak;
+            const btn = document.getElementById('auto-speak-btn');
+            if (autoSpeak) {
+                btn.className = "p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 transition";
+            } else {
+                btn.className = "p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-500 border border-slate-700 transition";
+                stopSpeech();
+            }
+        }
+
+        function showAIStatusBar(text, isSpeakingState) {
+            const bar = document.getElementById('ai-status-bar');
+            const statusText = document.getElementById('ai-status-text');
+            const waveAnim = document.getElementById('ai-wave-anim');
+
+            statusText.innerText = text;
+            if (isSpeakingState) {
+                waveAnim.classList.remove('hidden');
+            } else {
+                waveAnim.classList.add('hidden');
+            }
+            bar.classList.remove('hidden');
+        }
+
+        function hideAIStatusBar() {
+            document.getElementById('ai-status-bar').classList.add('hidden');
+        }
+
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function openTeachModal() {
+            document.getElementById('teach-modal').classList.remove('hidden');
+        }
+
+        function closeTeachModal() {
+            document.getElementById('teach-modal').classList.add('hidden');
+        }
+
+        function updateSpeechConfig() {
+            speechRate = parseFloat(document.getElementById('speech-rate').value);
+            speechPitch = parseFloat(document.getElementById('speech-pitch').value);
+
+            document.getElementById('rate-val').innerText = speechRate.toFixed(1);
+            document.getElementById('pitch-val').innerText = speechPitch.toFixed(1);
+        }
+
+        function updateSelectedVoice() {
+            // Updated dynamically via select dropdown
+        }
+
+        function testBengaliSpeech() {
+            speakBengaliText("পরীক্ষামূলক পরীক্ষা। আমি বাংলায় স্বাচ্ছন্দ্যে কথা বলতে পারি!");
+        }
+
+        function clearChatLog() {
+            document.getElementById('chat-log').innerHTML = '';
+            document.getElementById('welcome-card').classList.remove('hidden');
+            closeSettingsModal();
+        }
+
+        function handleTeachSubmit(e) {
+            e.preventDefault();
+            const q = document.getElementById('custom-q').value.trim();
+            const a = document.getElementById('custom-a').value.trim();
+
+            if (q && a) {
+                customKnowledge.push({ q, a });
+                localStorage.setItem('bengali_ai_custom_knowledge', JSON.stringify(customKnowledge));
+                
+                document.getElementById('custom-q').value = '';
+                document.getElementById('custom-a').value = '';
+                closeTeachModal();
+
+                alert('সফলভাবে এআই-কে নতুন প্রশ্নের উত্তর শেখানো হয়েছে!');
+            }
+        }
+
+        // Helpers
+        function scrollToBottom() {
+            const container = document.getElementById('chat-container');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function escapeForJs(str) {
+            return str.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, ' ');
+        }
+
+        function copyText(text) {
+            const temp = document.createElement('textarea');
+            temp.value = text;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            alert('কপি করা হয়েছে!');
+        }
+    </script>
+</body>
+</html>
+```
